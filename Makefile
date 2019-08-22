@@ -13,8 +13,10 @@ APP_NAME=SerialBinaryDumper
 # a standard gcc is needed to build this app on linux
 GCC = gcc
 
-# for fragments of the code that is sensitive to the OS_TYPE
-CUSTOM_DEFINES = -D OS_TYPE=$(OS_TYPE)
+# for fragments of the code that is sensitive to the OS_TYPE.
+# Also we need posix standard to be defined to use timespec functions like nanosleep from time.h
+# Also we need to define _BSD_SOURCE and _DEFAULT_SOURCE to use com port specifics on linux (like CRTSCTS)
+CUSTOM_DEFINES = -D OS_TYPE=$(OS_TYPE) -D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=199309L
 
 # Main path for .o files
 OBJ_OUTDIR ?= .

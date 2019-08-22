@@ -29,7 +29,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <string.h>
-#include <unistd.h>
+
+#if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
+#include <time.h>
+#endif
 
 #include "sbdop.h"
 
@@ -64,6 +67,11 @@ const char* portnames_h[MAX_SYS_COMPORTS] =
 void SBDOP_DispHelpInfo(void)
 {
     fprintf(stdout, "======= HELP =======\n");
+#if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
+    printf("Important: this program shall be called with super user (sudo) privileges to properly discover serial ports.\n");
+#else
+    printf("Important: this program shall be invoked with administrator privileges, since it operates on hw serial ports.\n");
+#endif
     printf("SerialBinaryDumper is a tool to dump binary file to the serial port.\n\n"
             "Usage:\n");
     printf("SerialBinaryDumper -h\n\t Displays this help information.\n");
@@ -90,20 +98,20 @@ void SBDOP_DispHelpInfo(void)
             SBDOP_MAX_DELAYMS);
 #if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
     printf("Sample invocations:\n"
-            "SerialBinaryDumper -l \n"
+            "sudo SerialBinaryDumper -l \n"
             "\tThis lists serial portnames available on the machine.\n"
-            "SerialBinaryDumper -p ttyS0 -f data32B.bin -b 57600 -dm 8n1 -dl 3\n"
+            "sudo SerialBinaryDumper -p ttyS0 -f data32B.bin -b 57600 -dm 8n1 -dl 3\n"
             "\tThis dumps data32B.bin file to serial port ttyS0, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds).\n"
-            "SerialBinaryDumper -p ttyS1 -f data64B.bin\n"
+            "sudo SerialBinaryDumper -p ttyS1 -f data64B.bin\n"
             "\tThis dumps data64B.bin file to serial port ttyS1, with default baudrate: %s (bps), default datamode: %s, default delay: %s (miliseconds).\n",
             SBDOP_DEFAULT_BAUDRATE, SBDOP_DEFAULT_DATAMODE, SBDOP_DEFAULT_DELAY);
 #else
     printf("Sample invocations:\n"
-            "SerialBinaryDumper -l \n"
+            "SerialBinaryDumper.exe -l \n"
             "\tThis lists serial portnames available on the machine.\n"
-            "SerialBinaryDumper -p COM3 -f data32B.bin -b 57600 -dm 8n1 -dl 3\n"
+            "SerialBinaryDumper.exe -p COM3 -f data32B.bin -b 57600 -dm 8n1 -dl 3\n"
             "\tThis dumps data32B.bin file to serial port COM3, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds).\n"
-            "SerialBinaryDumper -p COM4 -f data64B.bin\n"
+            "SerialBinaryDumper.exe -p COM4 -f data64B.bin\n"
             "\tThis dumps data64B.bin file to serial port COM4, with default baudrate: %s (bps), default datamode: %s, default delay: %s (miliseconds).\n",
             SBDOP_DEFAULT_BAUDRATE, SBDOP_DEFAULT_DATAMODE, SBDOP_DEFAULT_DELAY);
 #endif
@@ -214,17 +222,17 @@ int SBDOP_GetBaudRateFromName(const char* baudrate)
     return baud;
 }
 
-boolean SBDOP_ValidDataMode(const char* datamode)
+uint8_t SBDOP_ValidDataMode(const char* datamode)
 {
     if(datamode == NULL)
     {
         return FALSE;
     }
 
-    boolean valid = FALSE;
-    boolean valid0 = FALSE;
-    boolean valid1 = FALSE;
-    boolean valid2 = FALSE;
+    uint8_t valid = FALSE;
+    uint8_t valid0 = FALSE;
+    uint8_t valid1 = FALSE;
+    uint8_t valid2 = FALSE;
 
     if(strlen(datamode) != 3)
     {
@@ -284,7 +292,7 @@ boolean SBDOP_ValidDataMode(const char* datamode)
     return valid;
 }
 
-boolean SBDOP_ValidFile(
+uint8_t SBDOP_ValidFile(
         const char* filename,
         uint32_t* filesize)
 {
@@ -326,7 +334,7 @@ boolean SBDOP_ValidFile(
     return TRUE;
 }
 
-boolean SBDOP_ValidComPort(const char* portname)
+uint8_t SBDOP_ValidComPort(const char* portname)
 {
     int portnum = SBDOP_GetComPortNumFromName(portname);
     if(portnum == -1)
@@ -382,8 +390,7 @@ void SBDOP_ListComPorts(void)
         }
         if(RS232_OpenComport(port_num, 9600, "8n1", 0) == 0)
         {
-            printf(portnames_h[i]);
-            printf("\n");
+            printf("%s\n",portnames_h[i]);
             RS232_CloseComport(port_num);
             cp_found++;
         }
@@ -462,7 +469,9 @@ int SBDOP_DumpBinaryToPort(
         }
 
 #if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
-        usleep((delay_ms*1000)); //POSIX, <unistd.h>
+        //usleep((delay_ms*1000)); //POSIX, <unistd.h> - deprecated
+        uint32_t delay_ns = delay_ms * 1000000;
+        nanosleep(&((struct timespec){.tv_nsec = delay_ns}), NULL);
 #else
         Sleep(delay_ms); // <Windows.h>
 #endif

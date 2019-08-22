@@ -30,6 +30,15 @@
 #include "rs232.h"
 
 #if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
+#ifndef TRUE
+#define TRUE 1
+#endif
+#ifndef FALSE
+#define FALSE 0
+#endif
+#endif
+
+#if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
 #define MAX_SYS_COMPORTS 38
 #else
 #define MAX_SYS_COMPORTS 32
@@ -39,8 +48,13 @@ extern const char* portnames_h[MAX_SYS_COMPORTS];
 //!< Max file size to be dumped is 1GB
 #define SBDOP_MAX_FILESIZE 1073741824
 
+#if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
+//!< Max delay (miliseconds) supported by this app (nanosleep limit)
+#define SBDOP_MAX_DELAYMS 999
+#else
 //!< Max delay (miliseconds) supported by this app
 #define SBDOP_MAX_DELAYMS 60000
+#endif
 
 #define SBDOP_DEFAULT_BAUDRATE "9600"
 #define SBDOP_DEFAULT_DATAMODE "8n1"
@@ -104,7 +118,7 @@ int SBDOP_GetBaudRateFromName(const char* baudrate);
  * @retval TRUE If given datamode is valid.
  * @retval FALSE If given datamode is invalid.
  */
-boolean SBDOP_ValidDataMode(const char* datamode);
+uint8_t SBDOP_ValidDataMode(const char* datamode);
 
 /*
  * @brief Validates file with given filename.
@@ -118,7 +132,7 @@ boolean SBDOP_ValidDataMode(const char* datamode);
  * @retval TRUE If such file is valid.
  * @retval FALSE If such file is not valid.
  */
-boolean SBDOP_ValidFile(
+uint8_t SBDOP_ValidFile(
         const char* filename,
         uint32_t* filesize);
 
@@ -128,7 +142,7 @@ boolean SBDOP_ValidFile(
  * @retval TRUE If such port is valid and usable.
  * @retval FALSE If such port is invalid (unusable).
  */
-boolean SBDOP_ValidComPort(const char* portname);
+uint8_t SBDOP_ValidComPort(const char* portname);
 
 /*
  * @brief Returns delay (as int) from the given delay (const char*).
