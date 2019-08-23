@@ -471,7 +471,7 @@ int SBDOP_DumpBinaryToPort(
 #if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
         //usleep((delay_ms*1000)); //POSIX, <unistd.h> - deprecated
         uint32_t delay_ns = delay_ms * 1000000;
-        nanosleep(&((struct timespec){.tv_nsec = delay_ns}), NULL);
+        nanosleep(&((struct timespec){.tv_nsec = delay_ns, .tv_sec= 0}), NULL);
 #else
         Sleep(delay_ms); // <Windows.h>
 #endif
