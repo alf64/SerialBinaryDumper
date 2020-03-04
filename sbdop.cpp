@@ -32,6 +32,12 @@
 
 #if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
 #include <time.h>
+#else
+#include <chrono>
+using high_res_clock_t = std::chrono::high_resolution_clock;
+using steady_clock_t = std::chrono::steady_clock;
+using milliseconds_t = std::chrono::milliseconds;
+using microseconds_t = std::chrono::microseconds;
 #endif
 
 #include "sbdop.h"
@@ -93,27 +99,42 @@ void SBDOP_DispHelpInfo(void)
             SBDOP_DEFAULT_DATAMODE);
     printf("-dl <delay>\t A delay (in miliseconds) to apply between each byte send.\n"
             "Default delay is: %s.\n"
-            "Supported delay value range is: <0, %d>.\n\n",
+            "Supported delay value range is: <0, %d>.\n",
             SBDOP_DEFAULT_DELAY,
             SBDOP_MAX_DELAYMS);
+    printf("-bst <burst>\t A burst (in terms of number of bytes) used to group the data being dumped to port.\n"
+            "Default burst is: %s.\n"
+            "Supported burst value range is: <1, %d>.\n"
+            "burst cannot be greater than size of the file being dumped, and also such file size needs "
+            "to be dividable by burst.\n\n",
+            SBDOP_DEFAULT_BURST,
+            SBDOP_MAX_FILESIZE);
 #if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
     printf("Sample invocations:\n"
             "sudo SerialBinaryDumper -l \n"
             "\tThis lists serial portnames available on the machine.\n"
             "sudo SerialBinaryDumper -p ttyS0 -f data32B.bin -b 57600 -dm 8n1 -dl 3\n"
-            "\tThis dumps data32B.bin file to serial port ttyS0, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds).\n"
+            "\tThis dumps data32B.bin file to serial port ttyS0, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds), default burst.\n"
             "sudo SerialBinaryDumper -p ttyS1 -f data64B.bin\n"
-            "\tThis dumps data64B.bin file to serial port ttyS1, with default baudrate: %s (bps), default datamode: %s, default delay: %s (miliseconds).\n",
+            "\tThis dumps data64B.bin file to serial port ttyS1, with default baudrate: %s (bps), default datamode: %s, default delay: %s (miliseconds).\n"
+            "SerialBinaryDumper -p ttyS1 -f data32B.bin -b 57600 -dm 8n1 -dl 3 -bst 4\n"
+            "\tThis dumps data32B.bin file to serial port ttyS1, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds), burst: 4.\n"
+            "Burst of 4 means that data is being send as 4-byte chunks. There is no delay between bytes in chunks, "
+            "instead given delay is applied between chunks.\n",
             SBDOP_DEFAULT_BAUDRATE, SBDOP_DEFAULT_DATAMODE, SBDOP_DEFAULT_DELAY);
 #else
     printf("Sample invocations:\n"
             "SerialBinaryDumper.exe -l \n"
             "\tThis lists serial portnames available on the machine.\n"
             "SerialBinaryDumper.exe -p COM3 -f data32B.bin -b 57600 -dm 8n1 -dl 3\n"
-            "\tThis dumps data32B.bin file to serial port COM3, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds).\n"
+            "\tThis dumps data32B.bin file to serial port COM3, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds), default burst.\n"
             "SerialBinaryDumper.exe -p COM4 -f data64B.bin\n"
-            "\tThis dumps data64B.bin file to serial port COM4, with default baudrate: %s (bps), default datamode: %s, default delay: %s (miliseconds).\n",
-            SBDOP_DEFAULT_BAUDRATE, SBDOP_DEFAULT_DATAMODE, SBDOP_DEFAULT_DELAY);
+            "\tThis dumps data64B.bin file to serial port COM4, with default baudrate: %s (bps), default datamode: %s, default delay: %s (miliseconds), default burst: %s (bytes).\n"
+            "SerialBinaryDumper.exe -p COM3 -f data32B.bin -b 57600 -dm 8n1 -dl 3 -bst 4\n"
+            "\tThis dumps data32B.bin file to serial port COM3, with baudrate: 57600 (bps), datamode: 8n1, delay: 3 (miliseconds), burst: 4.\n"
+            "Burst of 4 means that data is being send as 4-byte chunks. There is no delay between bytes in chunks, "
+            "instead given delay is applied between chunks.\n",
+            SBDOP_DEFAULT_BAUDRATE, SBDOP_DEFAULT_DATAMODE, SBDOP_DEFAULT_DELAY, SBDOP_DEFAULT_BURST);
 #endif
 }
 
@@ -376,6 +397,33 @@ int SBDOP_GetDelayFromName(const char* delay)
     return dl;
 }
 
+int SBDOP_GetBurstFromName(const char* burst)
+{
+    return SBDOP_GetDelayFromName(burst);
+}
+
+uint8_t SBDOP_ValidBurst(
+        uint32_t burst,
+        uint32_t datasize)
+{
+    if(burst == 0)
+    {
+        return FALSE;
+    }
+
+    if(burst > datasize)
+    {
+        return FALSE;
+    }
+
+    if(datasize % burst != 0)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 void SBDOP_ListComPorts(void)
 {
     uint8_t cp_found = 0;
@@ -404,6 +452,7 @@ int SBDOP_DumpBinaryToPort(
         int portnum,
         int baud,
         int delay_ms,
+        int burst,
         const char* datamode,
         const char* filename,
         uint32_t filesize)
@@ -428,6 +477,7 @@ int SBDOP_DumpBinaryToPort(
     }
 
     uint8_t data;
+    int burst_cnt = 0;
     for(uint32_t i = 0; i < filesize; i++)
     {
         uint16_t perc = SBDOP_PercentageCompletion((i+1), filesize);
@@ -460,6 +510,7 @@ int SBDOP_DumpBinaryToPort(
             ret = -1;
             break;
         }
+
         ec = RS232_SendByte(portnum, data);
         if(ec == 1)
         {
@@ -467,14 +518,12 @@ int SBDOP_DumpBinaryToPort(
             ret = -1;
             break;
         }
-
-#if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
-        //usleep((delay_ms*1000)); //POSIX, <unistd.h> - deprecated
-        uint32_t delay_ns = delay_ms * 1000000;
-        nanosleep(&((struct timespec){.tv_nsec = delay_ns, .tv_sec= 0}), NULL);
-#else
-        Sleep(delay_ms); // <Windows.h>
-#endif
+        burst_cnt++;
+        if(burst_cnt == burst)
+        {
+            burst_cnt = 0;
+            SBDOP_Delay(delay_ms);
+        }
     }
 
     RS232_CloseComport(portnum);
@@ -493,5 +542,39 @@ uint16_t SBDOP_PercentageCompletion(
     }
 
     return (uint16_t)((x*100) / y);
+}
+
+void SBDOP_Delay(uint32_t delay_ms)
+{
+#if defined(__linux__) || defined(__FreeBSD__)   /* Linux & FreeBSD */
+        //usleep((delay_ms*1000)); //POSIX, <unistd.h> - deprecated
+        uint32_t delay_ns = delay_ms * 1000000;
+        nanosleep(&((struct timespec){.tv_nsec = delay_ns, .tv_sec= 0}), NULL);
+#else
+        /*
+         * TIP:
+         * Sleep causes thread switch. This means that there is only guarantee that you will AT LEAST sleep for a given amount of time,
+         * but in fact it may be a lot longer since it depends on the OS when exactly your thread will return to operate.
+         * Example: Sleep(2) may sleep for 2 ms or for 25 ms, you never know.
+         */
+        // Sleep(delay_ms); // <Windows.h>
+
+        /*
+         * using chrono lib instead to improve performance of delay
+         */
+        steady_clock_t clock;
+        auto start_time = clock.now();
+        microseconds_t elapsed_us;
+        const long long force_wait_us = (delay_ms * 1000);
+        do
+        {
+            auto end_time = clock.now();
+            elapsed_us = std::chrono::duration_cast<microseconds_t>(end_time - start_time);
+        }
+        //while(elapsed_us.count() < force_wait_us);
+        // advice: do not use .count() in your alogrithms since it breaks optmial chrono behavior.
+        while(elapsed_us < microseconds_t{force_wait_us});
+        //printf("duration is: %I64u us\n", elapsed_us.count());
+#endif
 }
 

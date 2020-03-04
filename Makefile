@@ -32,9 +32,9 @@ APP_BIN_OUTDIR = $(BIN_OUTDIR)/$(APP_NAME)
 
 
 
-SRCS = rs232.c \
-    main.c \
-    sbdop.c \
+SRCS = rs232.cpp \
+    main.cpp \
+    sbdop.cpp \
 
 OBJS = $(APP_OBJ_OUTDIR)/rs232.o \
     $(APP_OBJ_OUTDIR)/sbdop.o \
@@ -45,7 +45,7 @@ OBJS = $(APP_OBJ_OUTDIR)/rs232.o \
 all: $(APP_NAME)
 
 
-$(APP_OBJ_OUTDIR)/%.o: %.c
+$(APP_OBJ_OUTDIR)/%.o: %.cpp
 	mkdir -p $(APP_OBJ_OUTDIR)
 	@$(GCC) $(CUSTOM_DEFINES) -std=c99 -O3 -Wall -c -o $@ $<
 

@@ -59,6 +59,7 @@ extern const char* portnames_h[MAX_SYS_COMPORTS];
 #define SBDOP_DEFAULT_BAUDRATE "9600"
 #define SBDOP_DEFAULT_DATAMODE "8n1"
 #define SBDOP_DEFAULT_DELAY "0"
+#define SBDOP_DEFAULT_BURST "1"
 
 typedef enum
 {
@@ -76,6 +77,7 @@ typedef struct
     const char* datamode; // 8N1, 9N2, ...
     const char* filename;
     const char* delay;
+    const char* burst;
     uint8_t reserved[20];
 }op_args_db_t;
 
@@ -153,6 +155,27 @@ uint8_t SBDOP_ValidComPort(const char* portname);
 int SBDOP_GetDelayFromName(const char* delay);
 
 /*
+ * @brief Returns burst (as int) from the given burst (const char*).
+ * @param burst A burst as const char*
+ * @retval -1 Failed to get int from given const char*
+ * @retval !-1 The burst as int.
+ */
+int SBDOP_GetBurstFromName(const char* burst);
+
+/*
+ * @brief Validates burst.
+ *
+ * @param burst A burst to be validated.
+ * @param datasize A size of the data burst is associated with.
+ *
+ * @retval TRUE If such file is valid.
+ * @retval FALSE If such file is not valid.
+ */
+uint8_t SBDOP_ValidBurst(
+        uint32_t burst,
+        uint32_t datasize);
+
+/*
  * @brief Lists system's available com ports names.
  */
 void SBDOP_ListComPorts(void);
@@ -165,6 +188,12 @@ void SBDOP_ListComPorts(void);
  * @param datamode Datamode to use with serial port.
  * @param filename A name of the binary file to be dumped.
  * @param delay_ms A delay (in miliseconds) to be used between each binary character send.
+ * @param burst A burst (in bytes) to be applied.
+ * Burst > 1 means that:
+ * - data will be send grouped, each group of size: burst
+ * - there is no delay between bytes send in group
+ * - delay_ms parameter is interpreted as a delay
+ * between each group transmission.
  *
  * @retval -1 If failed to dump binary file to port.
  * @retval 0 If succeeded to dump binary file to port.
@@ -173,6 +202,7 @@ int SBDOP_DumpBinaryToPort(
         int portnum,
         int baud,
         int delay_ms,
+        int burst,
         const char* datamode,
         const char* filename,
         uint32_t filesize);
@@ -186,6 +216,12 @@ int SBDOP_DumpBinaryToPort(
 uint16_t SBDOP_PercentageCompletion(
         uint32_t x,
         uint32_t y);
+
+/*
+ * @brief Performs delay.
+ * @param delay_ms Delay to be performed (in miliseconds).
+ */
+void SBDOP_Delay(uint32_t delay_ms);
 
 
 #endif /* SBDOP_H_ */

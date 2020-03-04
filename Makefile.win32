@@ -24,7 +24,7 @@ MKDIR = -mkdir
 APP_NAME=SerialBinaryDumper.exe
 
 # a standard MinGW is needed to build this app under Windows
-GCC = gcc
+GCC = g++
 
 # for fragments of the code that is sensitive to the OS_TYPE
 CUSTOM_DEFINES = -D OS_TYPE=$(OS_TYPE)
@@ -37,9 +37,9 @@ APP_BIN_OUTDIR = $(APP_NAME)/bin
 
 
 
-SRCS = rs232.c \
-    main.c \
-    sbdop.c \
+SRCS = rs232.cpp \
+    main.cpp \
+    sbdop.cpp
     
 
 OBJS = $(APP_OBJ_OUTDIR)/rs232.o \
@@ -54,11 +54,11 @@ dirs:
 	$(MKDIR) "$(APP_OBJ_OUTDIR)"
 	$(MKDIR) "$(APP_BIN_OUTDIR)"
 
-$(APP_OBJ_OUTDIR)/%.o: %.c
-	@$(GCC) $(CUSTOM_DEFINES) -std=c99 -O3 -Wall -c -o $@ $<
+$(APP_OBJ_OUTDIR)/%.o: %.cpp
+	@$(GCC) $(CUSTOM_DEFINES) -std=c++0x -O3 -Wall -c -o $@ $<
 
 $(APP_NAME): dirs $(OBJS)
-	@$(GCC) $(CUSTOM_DEFINES) -std=c99 -O3 -Wall -o $(APP_BIN_OUTDIR)/$@ $(OBJS)
+	@$(GCC) $(CUSTOM_DEFINES) -std=c++0x -O3 -Wall -o $(APP_BIN_OUTDIR)/$@ $(OBJS)
 
 clean:
 	-$(RM) "$(APP_NAME)"

@@ -34,11 +34,12 @@
 
 int main(int argc, const char** args)
 {
-    ops_t ops = {0};
+    ops_t ops;
     ops.op = OP_INVALID;
     ops.args.dumpbin.baudrate = SBDOP_DEFAULT_BAUDRATE;
     ops.args.dumpbin.datamode = SBDOP_DEFAULT_DATAMODE;
     ops.args.dumpbin.delay = SBDOP_DEFAULT_DELAY;
+    ops.args.dumpbin.burst = SBDOP_DEFAULT_BURST;
     ops.args.dumpbin.portname = NULL;
     ops.args.dumpbin.filename = NULL;
 
@@ -127,6 +128,19 @@ int main(int argc, const char** args)
             }
         }
 
+        if(strcmp(args[i], "-bst") == 0)
+        {
+            if((i+1) < argc)
+            {
+                ops.args.dumpbin.burst = args[i+1];
+            }
+            else
+            {
+                ops.op = OP_INVALID;
+                break;
+            }
+        }
+
         if(i == (argc-1))
         {
             // last loop iteration, no error and no other options: assume OP_DUMP_BINARY
@@ -199,6 +213,22 @@ int main(int argc, const char** args)
 	            printf("Error! Given delay: %d too high. Max is: %d.\n", delay, SBDOP_MAX_DELAYMS);
 	            break;
 	        }
+	        int burst = SBDOP_GetBurstFromName(ops.args.dumpbin.burst);
+	        if(burst == -1 || burst == 0)
+	        {
+                printf("Error! Given burst: %s is invalid.\n", ops.args.dumpbin.burst);
+                break;
+	        }
+	        if(!SBDOP_ValidBurst(burst, filesize))
+	        {
+                printf("Error! Given burst: %s is invalid.\n"
+                        "It is either greater than filesize (%d bytes) or filesize is not"
+                        "dividable by burst.\n",
+                        ops.args.dumpbin.burst,
+                        filesize);
+                break;
+	        }
+
 
 	        printf("portname: %s.\n", ops.args.dumpbin.portname);
 	        printf("baud: %d.\n", baud);
@@ -206,11 +236,13 @@ int main(int argc, const char** args)
 	        printf("datamode: %s.\n", ops.args.dumpbin.datamode);
 	        printf("filename: %s.\n", ops.args.dumpbin.filename);
 	        printf("filesize: %d bytes.\n", filesize);
+	        printf("burst: %d bytes.\n", burst);
 
 	        int ec = SBDOP_DumpBinaryToPort(
 	                portnum,
 	                baud,
 	                delay,
+	                burst,
 	                ops.args.dumpbin.datamode,
 	                ops.args.dumpbin.filename,
 	                filesize);
